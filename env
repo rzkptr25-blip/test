@@ -1,0 +1,5 @@
+# Port server web fullstack
+PORT=3000
+
+# Alamat ComfyUI lokal atau tunnel publik (tanpa garis miring di akhir)
+COMFYUI_URL=https://wolfgg.online

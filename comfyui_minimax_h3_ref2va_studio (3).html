@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ComfyUI MiniMax H3 REF2VA Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              950: '#09090b',
+              900: '#121216',
+              800: '#1a1a20',
+              700: '#272730',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #121216; }
+    ::-webkit-scrollbar-thumb { background: #272730; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f4e; }
+    .glass-panel {
+      background: rgba(18, 18, 22, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-surface-950 text-zinc-100 font-sans antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Top Navigation & WebSocket Connection Bar -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-zinc-800/80 px-4 py-3">
+    <div class="max-w-[1600px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      
+      <!-- Brand -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">MiniMax H3 <span class="text-indigo-400">REF2VA</span></h1>
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">WebSocket Bridge</span>
+            </div>
+            <p class="text-xs text-zinc-400 hidden sm:block">Local ComfyUI Reference-to-Video & Audio Generator</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connection & Status Controls -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
+        <!-- GPU / VRAM Pill -->
+        <div id="gpuBadge" class="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-950/50 border border-indigo-500/20 text-[11px] font-mono text-indigo-300">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+          </svg>
+          <span id="gpuInfoText">Mengecek GPU...</span>
+        </div>
+
+        <!-- Clear VRAM GPU Button -->
+        <button id="clearVramBtn" type="button" title="Unload model dan bersihkan cache VRAM GPU ComfyUI"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-[0.98] text-amber-300 border border-amber-500/30 text-xs font-medium transition cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span id="clearVramText">Bersihkan VRAM</span>
+        </button>
+
+        <!-- Architecture Mode Badge (Fullstack Proxy / Direct WS) -->
+        <div id="modeBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-800 border border-zinc-700/80 text-[11px] font-mono text-zinc-300" title="Mode routing API & WebSocket">
+          <span id="modeDot" class="w-2 h-2 rounded-full bg-indigo-400"></span>
+          <span id="modeText">Direct WS</span>
+        </div>
+
+        <!-- Deploy Fullstack Kit Button -->
+        <button id="openDeployModalBtn" type="button" title="Unduh paket backend Node.js & Docker untuk hosting"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-[0.98] text-indigo-300 border border-indigo-500/30 text-xs font-medium transition cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          <span>Deploy Fullstack</span>
+        </button>
+
+        <!-- Status Pill -->
+        <div id="statusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-800/90 border border-zinc-700/80 text-xs font-medium">
+          <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+          <span id="statusText" class="text-amber-300">Menghubungkan...</span>
+          <span id="queueBadge" class="hidden ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded bg-zinc-700 text-zinc-300">Queue: 0</span>
+        </div>
+
+        <!-- Hidden Connection Controls (Auto-connect tetap aktif di latar belakang) -->
+        <div class="hidden items-center bg-surface-800 border border-zinc-700/80 rounded-xl overflow-hidden focus-within:border-indigo-500 transition flex-1 sm:flex-initial">
+          <span id="protocolPrefix" class="pl-3 pr-1.5 text-xs font-mono text-emerald-400 select-none">wss://</span>
+          <input id="serverHost" type="text" value="https://wolfgg.online" placeholder="wolfgg.online"
+            class="bg-transparent text-xs sm:text-sm font-mono text-zinc-100 py-1.5 pr-3 w-full sm:w-40 focus:outline-none" />
+        </div>
+
+        <label class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-800 border border-zinc-700/80 text-xs text-zinc-300 cursor-pointer select-none hover:border-indigo-500/50 transition" title="Otomatis terhubung saat halaman dibuka, host diubah, atau koneksi terputus">
+          <input id="autoConnectToggle" type="checkbox" checked class="rounded bg-surface-900 border-zinc-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+          <span class="font-medium">Auto</span>
+        </label>
+
+        <button id="connectBtn" class="hidden px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold transition shadow-md shadow-indigo-600/20 cursor-pointer">
+          Hubungkan Ulang
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- LEFT COLUMN: Workflow Controls (5 cols on lg) -->
+    <section class="lg:col-span-5 flex flex-col gap-4">
+
+      <!-- Card 1: Multi Reference Images Upload (5 Slots: Picture 1 - 5) -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-400 font-mono text-xs flex items-center justify-center font-bold">102</span>
+            <h2 class="font-semibold text-sm text-white">Gambar Referensi (Picture 1–5)</h2>
+          </div>
+          <span id="activeRefCountBadge" class="text-[11px] font-mono text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+            1 / 5 Aktif
+          </span>
+        </div>
+
+        <!-- Dynamic 5-Slot Reference Image Grid -->
+        <div id="refSlotsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+      </div>
+
+      <!-- Card 2: Prompt Editor (Node 106) -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-purple-500/15 text-purple-400 font-mono text-xs flex items-center justify-center font-bold">106</span>
+            <h2 class="font-semibold text-sm text-white">MiniMax H3 Structured Prompt</h2>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="clearPromptBtn" class="text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/70 transition cursor-pointer">
+              Bersihkan
+            </button>
+          </div>
+        </div>
+
+        <textarea id="promptInput" rows="9" placeholder="Tulis prompt Anda di sini..."
+          class="w-full bg-surface-800 border border-zinc-700/80 focus:border-indigo-500 rounded-xl p-3 text-xs font-mono text-zinc-100 leading-relaxed focus:outline-none resize-y"></textarea>
+        
+        <div class="flex items-center justify-between mt-2 text-[11px] text-zinc-500">
+          <span>Gunakan <code class="text-zinc-300">&lt;Picture 1&gt;</code>–<code class="text-zinc-300">&lt;Picture 5&gt;</code> &amp; <code class="text-zinc-300">&lt;Subject 1&gt;</code> untuk konsistensi</span>
+          <span id="charCount">0 karakter</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Video & Generation Parameters -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold text-sm text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            Parameter Video &amp; Sampling
+          </h2>
+          <!-- Aspect Ratio Presets -->
+          <div class="flex items-center gap-1">
+            <button type="button" data-ratio="9:16" onclick="setAspectRatio('9:16')" class="ratio-btn text-[11px] px-2 py-1 rounded-lg bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 transition cursor-pointer">9:16</button>
+            <button type="button" data-ratio="16:9" onclick="setAspectRatio('16:9')" class="ratio-btn text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 hover:text-indigo-200 border border-zinc-700/70 transition cursor-pointer">16:9</button>
+            <button type="button" data-ratio="1:1" onclick="setAspectRatio('1:1')" class="ratio-btn text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 hover:text-indigo-200 border border-zinc-700/70 transition cursor-pointer">1:1</button>
+          </div>
+        </div>
+
+        <!-- Resolution Quality Tier Presets (480p / 720p / 1080p) -->
+        <div class="bg-surface-800/70 border border-zinc-700/70 rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-zinc-400">Standar Resolusi</span>
+            <span id="activeResBadge" class="text-[11px] font-mono text-indigo-300">480p (480 × 864)</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" data-tier="480" onclick="setResolutionTier(480)"
+              class="res-tier-btn py-1.5 px-2 rounded-lg bg-indigo-600 text-white font-mono text-xs font-semibold border border-indigo-500 shadow-sm transition cursor-pointer">
+              480p
+            </button>
+            <button type="button" data-tier="720" onclick="setResolutionTier(720)"
+              class="res-tier-btn py-1.5 px-2 rounded-lg bg-surface-900 hover:bg-zinc-800 text-zinc-300 font-mono text-xs font-semibold border border-zinc-700/80 transition cursor-pointer">
+              720p
+            </button>
+            <button type="button" data-tier="1080" onclick="setResolutionTier(1080)"
+              class="res-tier-btn py-1.5 px-2 rounded-lg bg-surface-900 hover:bg-zinc-800 text-zinc-300 font-mono text-xs font-semibold border border-zinc-700/80 transition cursor-pointer">
+              1080p
+            </button>
+          </div>
+        </div>
+
+        <!-- Hidden Width & Height Inputs (Diatur otomatis lewat pilihan Rasio & Resolusi) -->
+        <input id="widthInput" type="hidden" value="480" />
+        <input id="heightInput" type="hidden" value="864" />
+
+        <!-- Duration (Node 27) & Hidden Steps (Node 86) -->
+        <div>
+          <div class="bg-surface-800/70 border border-zinc-700/70 rounded-xl p-2.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <label for="durationInput" class="text-zinc-400">Durasi: <span id="durationValueLabel" class="font-mono font-semibold text-white">15s</span></label>
+              <span id="calcFramesLabel" class="font-mono text-[11px] text-indigo-400">~362f</span>
+            </div>
+            <input id="durationInput" type="range" min="1" max="30" step="1" value="15"
+              class="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 my-1" />
+            <div class="flex justify-between text-[10px] font-mono text-zinc-500 mt-1">
+              <span>1s</span>
+              <span>10s</span>
+              <span>15s</span>
+              <span>20s</span>
+              <span>30s</span>
+            </div>
+          </div>
+          <input id="stepsInput" type="hidden" value="8" />
+        </div>
+
+        <!-- Seed (Node 6) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-zinc-400">Noise Seed (Node 6)</label>
+            <label class="flex items-center gap-1.5 text-xs text-zinc-300 cursor-pointer select-none">
+              <input id="autoRandomSeed" type="checkbox" checked class="rounded bg-surface-800 border-zinc-600 text-indigo-600 focus:ring-indigo-500" />
+              <span>Acak setiap run</span>
+            </label>
+          </div>
+          <div class="flex gap-2">
+            <input id="seedInput" type="number" value="155" class="flex-1 bg-surface-800 border border-zinc-700/80 rounded-xl px-3 py-2 text-sm font-mono text-white focus:border-indigo-500 focus:outline-none" />
+            <button type="button" id="randomSeedBtn" class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-xs font-medium text-zinc-200 transition cursor-pointer" title="Acak Seed Sekarang">
+              🎲 Acak
+            </button>
+          </div>
+        </div>
+
+        <!-- Advanced Accordion (Disembunyikan agar tampilan ringkas, nilai default tetap terbaca) -->
+        <details class="hidden group border-t border-zinc-800 pt-3">
+          <summary class="flex items-center justify-between text-xs font-semibold text-zinc-300 cursor-pointer select-none list-none">
+            <span>Pengaturan Lanjutan (Model, LoRA, Overlay &amp; Skala)</span>
+            <svg class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+          
+          <div class="mt-3 space-y-3 text-xs">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-zinc-400 mb-1">Max Ref Size (Node 105)</label>
+                <input id="refMaxSizeInput" type="number" step="64" value="512" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-white" />
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Sampler (Node 9)</label>
+                <input id="samplerInput" type="text" value="euler" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-white" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-zinc-400 mb-1">Diffusion Model / UNET (Node 1)</label>
+              <input id="unetInput" type="text" value="MiniMax_H3_Ref2VA_pruned_int8_convrot.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-zinc-400 mb-1">CLIP Model (Node 2)</label>
+                <input id="clipInput" type="text" value="qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Video VAE (Node 3)</label>
+                <input id="videoVaeInput" type="text" value="minimax_h3_video_vae_int8_convrot.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-zinc-400 mb-1">Audio VAE (Node 4)</label>
+              <input id="audioVaeInput" type="text" value="minimax_h3_audio_vae_fp32.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div class="col-span-2">
+                <label class="block text-zinc-400 mb-1">LoRA 1 — Turbo (Node 93)</label>
+                <input id="lora1NameInput" type="text" value="minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Strength</label>
+                <input id="lora1StrengthInput" type="number" step="0.05" value="0.75" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-white" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div class="col-span-2">
+                <label class="block text-zinc-400 mb-1">LoRA 2 — Style (Node 51)</label>
+                <input id="lora2NameInput" type="text" value="MysticXXX_MMH3-V5-ref2va.safetensors" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+              </div>
+              <div>
+                <label class="block text-zinc-400 mb-1">Strength</label>
+                <input id="lora2StrengthInput" type="number" step="0.05" value="1" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-white" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-zinc-400 mb-1">Prefix Output Video Utama (Node 83)</label>
+              <input id="prefixMainInput" type="text" value="MysticXXX-V5-REF/Video" class="w-full bg-surface-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-200" />
+            </div>
+          </div>
+        </details>
+
+        <!-- Action Buttons -->
+        <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+          <button id="generateBtn" type="button" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition cursor-pointer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id="generateBtnText">Generate Video &amp; Audio</span>
+          </button>
+
+          <button id="interruptBtn" type="button" disabled class="py-3 px-4 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 disabled:opacity-40 disabled:pointer-events-none text-rose-300 border border-rose-500/30 font-semibold text-sm transition cursor-pointer">
+            Hentikan
+          </button>
+        </div>
+
+        <!-- Secondary Utility Actions -->
+        <div class="flex items-center justify-between pt-1 border-t border-zinc-800/80 text-xs">
+          <button type="button" id="exportJsonBtn" class="text-zinc-400 hover:text-indigo-400 flex items-center gap-1.5 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Ekspor API JSON
+          </button>
+          <span class="font-mono text-[11px] text-zinc-500">Client ID: <span id="clientIdDisplay">...</span></span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Live Telemetry & Video Output Studio (7 cols on lg) -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- Live Execution Telemetry Card -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span id="execPulse" class="w-2.5 h-2.5 rounded-full bg-zinc-600"></span>
+            <h2 class="font-semibold text-sm text-white">Status Eksekusi WebSocket</h2>
+          </div>
+          <span id="currentNodeLabel" class="text-xs font-mono text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-lg">
+            Siap menerima antrean
+          </span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="w-full h-3 bg-surface-800 rounded-full overflow-hidden border border-zinc-800 p-0.5">
+          <div id="progressBar" class="h-full w-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-200"></div>
+        </div>
+        <div class="flex justify-between items-center mt-1.5 text-[11px] font-mono text-zinc-400">
+          <span id="progressStepText">Step: 0 / 0</span>
+          <span id="progressPercentText">0%</span>
+        </div>
+
+        <!-- Pipeline Node Chips -->
+        <div class="mt-4 pt-3 border-t border-zinc-800/80">
+          <p class="text-[11px] text-zinc-500 mb-2">Tahapan Pipeline Utama:</p>
+          <div id="pipelineSteps" class="flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span data-node="102" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">102: Load Image</span>
+            <span data-node="106" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">106: MiniMax H3 Encode</span>
+            <span data-node="94:47" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">94:47: Sampler</span>
+            <span data-node="94:45" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">94:45: Decode Video</span>
+            <span data-node="94:46" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">94:46: Decode Audio</span>
+            <span data-node="83" class="node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800">83: Save Video</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output Video Viewer Card -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-5 flex-1 flex flex-col">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 class="font-semibold text-sm text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+            </svg>
+            Hasil Output Video &amp; Audio
+          </h2>
+          <span class="text-[11px] font-mono text-zinc-400 bg-surface-800 px-2.5 py-1 rounded-lg border border-zinc-800">
+            Node 83 • SaveVideo
+          </span>
+        </div>
+
+        <!-- Empty Video State -->
+        <div id="emptyVideoState" class="flex-1 min-h-[340px] rounded-xl bg-surface-800/40 border border-dashed border-zinc-800 flex flex-col items-center justify-center p-6 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-zinc-800/80 flex items-center justify-center text-zinc-500 mb-3">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-zinc-300">Belum ada video yang dihasilkan</p>
+          <p class="text-xs text-zinc-500 max-w-md mt-1">
+            Hubungkan ke ComfyUI lokal, pilih gambar referensi, lalu klik <strong>Generate Video &amp; Audio</strong>. Hasil video utama dengan audio akan otomatis tampil di sini.
+          </p>
+        </div>
+
+        <!-- Active Single Video Player Container -->
+        <div id="videoOutputContainer" class="hidden flex-1 flex flex-col">
+          <div id="mainVideoCard" class="bg-surface-800 rounded-xl border border-zinc-700/80 overflow-hidden flex flex-col flex-1">
+            <div class="px-3.5 py-2.5 border-b border-zinc-700/60 flex items-center justify-between">
+              <span class="text-xs font-semibold text-zinc-200">Video Utama (Node 83)</span>
+              <a id="downloadMainBtn" href="#" download target="_blank" class="text-[11px] px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 font-medium transition">
+                Unduh MP4
+              </a>
+            </div>
+            <div class="bg-black flex-1 flex items-center justify-center min-h-[320px]">
+              <video id="mainVideoPlayer" controls loop playsinline class="w-full max-h-[540px] object-contain"></video>
+            </div>
+            <div id="mainVideoMeta" class="px-3.5 py-2 text-[11px] font-mono text-zinc-400 truncate bg-surface-900/60">
+              Menunggu file...
+            </div>
+          </div>
+        </div>
+
+        <!-- Session History Strip -->
+        <div id="historySection" class="hidden mt-4 pt-4 border-t border-zinc-800/80">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-semibold text-zinc-300">Riwayat Sesi Ini</h3>
+            <button type="button" id="clearHistoryBtn" class="text-[11px] text-zinc-500 hover:text-zinc-300 cursor-pointer">Bersihkan</button>
+          </div>
+          <div id="historyList" class="flex gap-2.5 overflow-x-auto pb-1"></div>
+        </div>
+      </div>
+
+      <!-- Terminal / WebSocket Log Console -->
+      <div class="glass-panel rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Log WebSocket &amp; API
+          </span>
+          <button type="button" id="clearLogBtn" class="text-[11px] text-zinc-500 hover:text-zinc-300 cursor-pointer">Hapus Log</button>
+        </div>
+        <div id="logConsole" class="h-32 overflow-y-auto bg-surface-900/90 border border-zinc-800/90 rounded-xl p-2.5 font-mono text-[11px] text-zinc-400 space-y-1">
+          <div class="text-zinc-500">[System] Aplikasi siap. Masukkan alamat host ComfyUI dan klik Hubungkan.</div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Fullstack Hosting & Backend Kit Modal -->
+  <div id="deployModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-zinc-700/80 shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between bg-surface-900/90">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base text-white">Paket Backend Fullstack &amp; Siap Hosting</h3>
+            <p class="text-xs text-zinc-400">Node.js Reverse Proxy (REST + WebSocket) • Penyimpanan Riwayat Server • Docker Ready</p>
+          </div>
+        </div>
+        <button id="closeDeployModalBtn" type="button" class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="px-5 pt-3 border-b border-zinc-800 bg-surface-900/60 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap gap-1.5 pb-2" id="deployTabs">
+          <button type="button" data-file="guide" class="deploy-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white transition cursor-pointer">Panduan Hosting</button>
+          <button type="button" data-file="server.js" class="deploy-tab px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-800 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer">server.js</button>
+          <button type="button" data-file="package.json" class="deploy-tab px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-800 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer">package.json</button>
+          <button type="button" data-file=".env.example" class="deploy-tab px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-800 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer">.env.example</button>
+          <button type="button" data-file="Dockerfile" class="deploy-tab px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-800 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer">Dockerfile</button>
+        </div>
+        <div class="flex items-center gap-2 pb-2" id="deployFileActions">
+          <button type="button" id="copyDeployFileBtn" class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 transition cursor-pointer">
+            Salin Kode
+          </button>
+          <button type="button" id="downloadDeployFileBtn" class="hidden px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium border border-emerald-500/30 transition cursor-pointer">
+            Unduh File
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-5 overflow-y-auto flex-1 bg-surface-950/70">
+        <!-- Guide View -->
+        <div id="deployGuideView" class="space-y-4 text-xs sm:text-sm text-zinc-300">
+          <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+            <h4 class="font-semibold text-indigo-300 mb-1">Arsitektur Fullstack Otomatis</h4>
+            <p class="text-xs text-zinc-300 leading-relaxed">
+              Aplikasi ini sudah mendukung <strong>Auto-Detect Fullstack Proxy</strong>. Saat file <code class="text-indigo-200">index.html</code> diletakkan di folder <code class="text-indigo-200">public/</code> bersama <code class="text-indigo-200">server.js</code>, frontend otomatis mendeteksi endpoint <code class="text-indigo-200">/api/health</code> lalu meneruskan semua request ComfyUI &amp; WebSocket lewat domain hosting Anda (bebas CORS &amp; aman untuk HTTPS).
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="p-4 rounded-xl bg-surface-900 border border-zinc-800">
+              <h4 class="font-semibold text-white mb-2">1. Struktur Folder Proyek</h4>
+              <pre class="font-mono text-[11px] text-emerald-300 bg-surface-950 p-3 rounded-lg border border-zinc-800 overflow-x-auto">ref2va-fullstack/
+├── server.js
+├── package.json
+├── .env
+├── Dockerfile
+├── data/               (otomatis dibuat)
+│   └── jobs.json       (riwayat video server)
+└── public/
+    └── index.html      (file aplikasi ini)</pre>
+            </div>
+
+            <div class="p-4 rounded-xl bg-surface-900 border border-zinc-800">
+              <h4 class="font-semibold text-white mb-2">2. Jalankan di VPS / Railway / Render</h4>
+              <pre class="font-mono text-[11px] text-zinc-300 bg-surface-950 p-3 rounded-lg border border-zinc-800 overflow-x-auto"># Install dependensi
+npm install
+
+# Salin env &amp; isi COMFYUI_URL
+cp .env.example .env
+
+# Jalankan produksi
+npm start
+
+# Atau via Docker:
+docker build -t ref2va-studio .
+docker run -p 3000:3000 -e COMFYUI_URL=https://wolfgg.online ref2va-studio</pre>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+            <span class="text-xs text-zinc-400">Unduh semua file backend sekaligus atau pilih tab di atas:</span>
+            <button type="button" id="downloadAllBackendBtn" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition cursor-pointer">
+              Unduh Semua File Backend (4 File)
+            </button>
+          </div>
+        </div>
+
+        <!-- Code Preview View -->
+        <pre id="deployCodeView" class="hidden font-mono text-[11px] leading-relaxed text-zinc-200 bg-surface-900 p-4 rounded-xl border border-zinc-800 overflow-x-auto whitespace-pre"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. EMBEDDED COMFYUI API WORKFLOW (REF2VA-Workflow 1111.json)
+    // =========================================================================
+    const BASE_WORKFLOW = {
+      "1": {
+        "inputs": {
+          "unet_name": "MiniMax_H3_Ref2VA_pruned_int8_convrot.safetensors",
+          "weight_dtype": "default"
+        },
+        "class_type": "UNETLoader",
+        "_meta": { "title": "Load Diffusion Model", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "2": {
+        "inputs": {
+          "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "type": "minimax",
+          "device": "default"
+        },
+        "class_type": "CLIPLoader",
+        "_meta": { "title": "Load CLIP", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "3": {
+        "inputs": {
+          "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+        },
+        "class_type": "VAELoader",
+        "_meta": { "title": "Load VAE", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "4": {
+        "inputs": {
+          "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+        },
+        "class_type": "VAELoader",
+        "_meta": { "title": "Load VAE", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "6": {
+        "inputs": {
+          "noise_seed": 155
+        },
+        "class_type": "RandomNoise",
+        "_meta": { "title": "RandomNoise", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "9": {
+        "inputs": {
+          "sampler_name": "euler"
+        },
+        "class_type": "KSamplerSelect",
+        "_meta": { "title": "KSamplerSelect", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "25": {
+        "inputs": {
+          "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+          "values.a": ["27", 0]
+        },
+        "class_type": "ComfyMathExpression",
+        "_meta": { "title": "Math Expression", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "27": {
+        "inputs": {
+          "value": 15
+        },
+        "class_type": "PrimitiveFloat",
+        "_meta": { "title": "Float (duration)", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "51": {
+        "inputs": {
+          "lora_name": "MysticXXX_MMH3-V5-ref2va.safetensors",
+          "strength_model": 1,
+          "model": ["93", 0]
+        },
+        "class_type": "LoraLoaderModelOnly",
+        "_meta": { "title": "Load LoRA", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "83": {
+        "inputs": {
+          "filename_prefix": "MysticXXX-V5-REF/Video",
+          "format": "auto",
+          "format.codec": "auto",
+          "codec": "auto",
+          "video": ["94:98", 0]
+        },
+        "class_type": "SaveVideo",
+        "_meta": { "title": "Save Video", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "85": {
+        "inputs": {
+          "attention": "comfy kitchen attention",
+          "model": ["1", 0]
+        },
+        "class_type": "ModelAttentionBackend",
+        "_meta": { "title": "Model Attention Backend", "cnr_id": "comfy-core", "ver": "0.31.0" }
+      },
+      "86": {
+        "inputs": {
+          "value": 8
+        },
+        "class_type": "PrimitiveInt",
+        "_meta": { "title": "Steps", "cnr_id": "comfy-core", "ver": "0.34.0" }
+      },
+      "93": {
+        "inputs": {
+          "lora_name": "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors",
+          "strength_model": 0.75,
+          "model": ["85", 0]
+        },
+        "class_type": "LoraLoaderModelOnly",
+        "_meta": { "title": "Load LoRA", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "102": {
+        "inputs": {
+          "image": "ref1.jpeg"
+        },
+        "class_type": "LoadImage",
+        "_meta": { "title": "Load Image", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "105": {
+        "inputs": {
+          "upscale_method": "area",
+          "largest_size": 512,
+          "image": ["102", 0]
+        },
+        "class_type": "ImageScaleToMaxDimension",
+        "_meta": { "title": "Scale Image to Max Dimension", "cnr_id": "comfy-core", "ver": "0.34.0" }
+      },
+      "106": {
+        "inputs": {
+          "prompt": "",
+          "width": 480,
+          "height": 864,
+          "length": ["25", 1],
+          "ref_image_size": "match",
+          "clip": ["2", 0],
+          "vae": ["3", 0],
+          "audio_vae": ["4", 0],
+          "ref_images.ref_image_0": ["105", 0]
+        },
+        "class_type": "MiniMaxH3ReferenceToVideo",
+        "_meta": { "title": "MiniMax H3 Reference to Video", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:46": {
+        "inputs": {
+          "samples": ["94:47", 0],
+          "vae": ["4", 0]
+        },
+        "class_type": "VAEDecodeAudio",
+        "_meta": { "title": "VAE Decode Audio", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:47": {
+        "inputs": {
+          "noise": ["6", 0],
+          "guider": ["94:49", 0],
+          "sampler": ["9", 0],
+          "sigmas": ["94:48", 0],
+          "latent_image": ["106", 1]
+        },
+        "class_type": "SamplerCustomAdvanced",
+        "_meta": { "title": "SamplerCustomAdvanced", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:45": {
+        "inputs": {
+          "samples": ["94:47", 0],
+          "vae": ["3", 0]
+        },
+        "class_type": "VAEDecode",
+        "_meta": { "title": "VAE Decode", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:49": {
+        "inputs": {
+          "model": ["51", 0],
+          "conditioning": ["106", 0]
+        },
+        "class_type": "BasicGuider",
+        "_meta": { "title": "Basic Guider", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:48": {
+        "inputs": {
+          "scheduler": "simple",
+          "steps": ["86", 0],
+          "denoise": 1,
+          "model": ["51", 0]
+        },
+        "class_type": "BasicScheduler",
+        "_meta": { "title": "BasicScheduler", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      },
+      "94:98": {
+        "inputs": {
+          "fps": 24,
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "chroma_subsampling": "none",
+          "codec": "none",
+          "images": ["94:45", 0],
+          "audio": ["94:46", 0]
+        },
+        "class_type": "CreateVideo",
+        "_meta": { "title": "Create Video", "cnr_id": "comfy-core", "ver": "0.33.0" }
+      }
+    };
+
+    // =========================================================================
+    // 2. APPLICATION STATE & DOM REFERENCES
+    // =========================================================================
+    function generateUUID() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    }
+
+    const state = {
+      clientId: generateUUID(),
+      ws: null,
+      isConnected: false,
+      mode: 'direct', // 'proxy' (fullstack same-origin) atau 'direct' (langsung ke ComfyUI)
+      autoConnect: true,
+      manualDisconnect: false,
+      reconnectTimer: null,
+      hostDebounceTimer: null,
+      isGenerating: false,
+      currentPromptId: null,
+      refSlots: [
+        { index: 0, label: 'Picture 1', loadNodeId: '102', scaleNodeId: '105', file: null, uploadedFilename: 'ref1.jpeg', previewUrl: null, dimensions: '' },
+        { index: 1, label: 'Picture 2', loadNodeId: '201', scaleNodeId: '211', file: null, uploadedFilename: null, previewUrl: null, dimensions: '' },
+        { index: 2, label: 'Picture 3', loadNodeId: '202', scaleNodeId: '212', file: null, uploadedFilename: null, previewUrl: null, dimensions: '' },
+        { index: 3, label: 'Picture 4', loadNodeId: '203', scaleNodeId: '213', file: null, uploadedFilename: null, previewUrl: null, dimensions: '' },
+        { index: 4, label: 'Picture 5', loadNodeId: '204', scaleNodeId: '214', file: null, uploadedFilename: null, previewUrl: null, dimensions: '' }
+      ],
+      currentOutput: null,
+      sessionHistory: [],
+      aspectRatio: '9:16',
+      resolutionTier: 480
+    };
+
+    const els = {
+      serverHost: document.getElementById('serverHost'),
+      autoConnectToggle: document.getElementById('autoConnectToggle'),
+      protocolPrefix: document.getElementById('protocolPrefix'),
+      connectBtn: document.getElementById('connectBtn'),
+      statusDot: document.getElementById('statusDot'),
+      statusText: document.getElementById('statusText'),
+      queueBadge: document.getElementById('queueBadge'),
+      gpuBadge: document.getElementById('gpuBadge'),
+      gpuInfoText: document.getElementById('gpuInfoText'),
+      clearVramBtn: document.getElementById('clearVramBtn'),
+      clearVramText: document.getElementById('clearVramText'),
+      modeBadge: document.getElementById('modeBadge'),
+      modeDot: document.getElementById('modeDot'),
+      modeText: document.getElementById('modeText'),
+      openDeployModalBtn: document.getElementById('openDeployModalBtn'),
+      deployModal: document.getElementById('deployModal'),
+      closeDeployModalBtn: document.getElementById('closeDeployModalBtn'),
+      deployGuideView: document.getElementById('deployGuideView'),
+      deployCodeView: document.getElementById('deployCodeView'),
+      copyDeployFileBtn: document.getElementById('copyDeployFileBtn'),
+      downloadDeployFileBtn: document.getElementById('downloadDeployFileBtn'),
+      downloadAllBackendBtn: document.getElementById('downloadAllBackendBtn'),
+      refSlotsGrid: document.getElementById('refSlotsGrid'),
+      activeRefCountBadge: document.getElementById('activeRefCountBadge'),
+      promptInput: document.getElementById('promptInput'),
+      charCount: document.getElementById('charCount'),
+      clearPromptBtn: document.getElementById('clearPromptBtn'),
+      widthInput: document.getElementById('widthInput'),
+      heightInput: document.getElementById('heightInput'),
+      durationInput: document.getElementById('durationInput'),
+      durationValueLabel: document.getElementById('durationValueLabel'),
+      calcFramesLabel: document.getElementById('calcFramesLabel'),
+      stepsInput: document.getElementById('stepsInput'),
+      seedInput: document.getElementById('seedInput'),
+      autoRandomSeed: document.getElementById('autoRandomSeed'),
+      randomSeedBtn: document.getElementById('randomSeedBtn'),
+      refMaxSizeInput: document.getElementById('refMaxSizeInput'),
+      samplerInput: document.getElementById('samplerInput'),
+      unetInput: document.getElementById('unetInput'),
+      clipInput: document.getElementById('clipInput'),
+      videoVaeInput: document.getElementById('videoVaeInput'),
+      audioVaeInput: document.getElementById('audioVaeInput'),
+      lora1NameInput: document.getElementById('lora1NameInput'),
+      lora1StrengthInput: document.getElementById('lora1StrengthInput'),
+      lora2NameInput: document.getElementById('lora2NameInput'),
+      lora2StrengthInput: document.getElementById('lora2StrengthInput'),
+      prefixMainInput: document.getElementById('prefixMainInput'),
+      generateBtn: document.getElementById('generateBtn'),
+      generateBtnText: document.getElementById('generateBtnText'),
+      interruptBtn: document.getElementById('interruptBtn'),
+      exportJsonBtn: document.getElementById('exportJsonBtn'),
+      clientIdDisplay: document.getElementById('clientIdDisplay'),
+      execPulse: document.getElementById('execPulse'),
+      currentNodeLabel: document.getElementById('currentNodeLabel'),
+      progressBar: document.getElementById('progressBar'),
+      progressStepText: document.getElementById('progressStepText'),
+      progressPercentText: document.getElementById('progressPercentText'),
+      emptyVideoState: document.getElementById('emptyVideoState'),
+      videoOutputContainer: document.getElementById('videoOutputContainer'),
+      mainVideoPlayer: document.getElementById('mainVideoPlayer'),
+      downloadMainBtn: document.getElementById('downloadMainBtn'),
+      mainVideoMeta: document.getElementById('mainVideoMeta'),
+      historySection: document.getElementById('historySection'),
+      historyList: document.getElementById('historyList'),
+      clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+      logConsole: document.getElementById('logConsole'),
+      clearLogBtn: document.getElementById('clearLogBtn')
+    };
+
+    // =========================================================================
+    // 3. HELPER & UI FUNCTIONS
+    // =========================================================================
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const styles = {
+        info: 'bg-zinc-900/95 border-indigo-500/40 text-zinc-100',
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-100',
+        warning: 'bg-amber-950/95 border-amber-500/50 text-amber-100',
+        error: 'bg-rose-950/95 border-rose-500/50 text-rose-100'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-xl text-xs font-medium backdrop-blur-md transition-all duration-300 ${styles[type] || styles.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3600);
+    }
+
+    function appendLog(message, level = 'info') {
+      if (!els.logConsole) return;
+      const colors = {
+        info: 'text-zinc-400',
+        ws: 'text-indigo-300',
+        success: 'text-emerald-400',
+        error: 'text-rose-400'
+      };
+      const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+      const line = document.createElement('div');
+      line.className = colors[level] || colors.info;
+      line.textContent = `[${time}] ${message}`;
+      els.logConsole.appendChild(line);
+      els.logConsole.scrollTop = els.logConsole.scrollHeight;
+    }
+
+    function getProtocolConfig() {
+      // Mode Fullstack Proxy: gunakan same-origin /api/comfy dan /ws/comfy
+      if (state.mode === 'proxy') {
+        const isSecure = window.location.protocol === 'https:';
+        const wsProto = isSecure ? 'wss' : 'ws';
+        if (els.protocolPrefix) {
+          els.protocolPrefix.textContent = `${wsProto}://`;
+        }
+        return {
+          host: window.location.host,
+          wsUrl: `${wsProto}://${window.location.host}/ws/comfy?clientId=${state.clientId}`,
+          httpBase: `${window.location.origin}/api/comfy`
+        };
+      }
+
+      let raw = (els.serverHost?.value || 'https://wolfgg.online').trim();
+      let isSecure = window.location.protocol === 'https:';
+
+      if (raw.startsWith('https://') || raw.startsWith('wss://')) {
+        isSecure = true;
+      } else if (raw.startsWith('http://') || raw.startsWith('ws://')) {
+        isSecure = false;
+      }
+
+      const host = raw.replace(/^(https?:\/\/|wss?:\/\/)/i, '').replace(/\/+$/, '');
+      const wsProto = isSecure ? 'wss' : 'ws';
+      const httpProto = isSecure ? 'https' : 'http';
+
+      if (els.protocolPrefix) {
+        els.protocolPrefix.textContent = `${wsProto}://`;
+      }
+
+      return {
+        host,
+        wsUrl: `${wsProto}://${host}/ws?clientId=${state.clientId}`,
+        httpBase: `${httpProto}://${host}`
+      };
+    }
+
+    function setConnectionStatus(status) {
+      if (!els.statusDot || !els.statusText || !els.connectBtn) return;
+
+      if (status === 'connected') {
+        state.isConnected = true;
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]';
+        els.statusText.className = 'text-emerald-300';
+        els.statusText.textContent = 'Terhubung';
+        if (els.queueBadge) els.queueBadge.classList.remove('hidden');
+        els.connectBtn.textContent = 'Putus';
+        els.connectBtn.className = 'px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs sm:text-sm font-semibold transition cursor-pointer';
+      } else if (status === 'connecting') {
+        state.isConnected = false;
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+        els.statusText.className = 'text-amber-300';
+        els.statusText.textContent = 'Menghubungkan...';
+        if (els.queueBadge) els.queueBadge.classList.add('hidden');
+        els.connectBtn.textContent = 'Batal';
+        els.connectBtn.className = 'px-4 py-1.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs sm:text-sm font-semibold transition cursor-pointer';
+      } else {
+        state.isConnected = false;
+        els.statusDot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
+        els.statusText.className = 'text-rose-300';
+        els.statusText.textContent = 'Terputus';
+        if (els.queueBadge) els.queueBadge.classList.add('hidden');
+        if (els.gpuBadge) els.gpuBadge.classList.add('hidden');
+        els.connectBtn.textContent = 'Hubungkan';
+        els.connectBtn.className = 'px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold transition shadow-md shadow-indigo-600/20 cursor-pointer';
+      }
+    }
+
+    function updateFrameCalculation() {
+      const a = Math.max(1, Math.round(parseFloat(els.durationInput.value) || 15));
+      const base = Math.max(5, Math.round(a * 24));
+      const frames = base + ((5 - (base % 17)) % 17);
+
+      if (els.durationValueLabel) {
+        els.durationValueLabel.textContent = `${a}s`;
+      }
+      if (els.calcFramesLabel) {
+        els.calcFramesLabel.textContent = `~${frames}f`;
+      }
+      if (!state.isGenerating && els.generateBtnText) {
+        els.generateBtnText.textContent = 'Generate Video & Audio';
+      }
+    }
+
+    function setResolution(w, h) {
+      els.widthInput.value = w;
+      els.heightInput.value = h;
+      const badge = document.getElementById('activeResBadge');
+      if (badge) {
+        badge.textContent = `${state.resolutionTier}p (${w} × ${h})`;
+      }
+      showToast(`Resolusi diatur ke ${w}×${h}`, 'info');
+    }
+
+    // Pemetaan resolusi kelipatan 16 untuk 480p, 720p, dan 1080p
+    const RESOLUTION_MAP = {
+      '9:16': {
+        480: [480, 864],
+        720: [720, 1280],
+        1080: [1088, 1920]
+      },
+      '16:9': {
+        480: [864, 480],
+        720: [1280, 720],
+        1080: [1920, 1088]
+      },
+      '1:1': {
+        480: [480, 480],
+        720: [720, 720],
+        1080: [1088, 1088]
+      }
+    };
+
+    function updateResolutionUI() {
+      document.querySelectorAll('.ratio-btn').forEach(btn => {
+        const active = btn.dataset.ratio === state.aspectRatio;
+        btn.className = active
+          ? 'ratio-btn text-[11px] px-2 py-1 rounded-lg bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 transition cursor-pointer'
+          : 'ratio-btn text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 hover:text-indigo-200 border border-zinc-700/70 transition cursor-pointer';
+      });
+
+      document.querySelectorAll('.res-tier-btn').forEach(btn => {
+        const active = Number(btn.dataset.tier) === state.resolutionTier;
+        btn.className = active
+          ? 'res-tier-btn py-1.5 px-2 rounded-lg bg-indigo-600 text-white font-mono text-xs font-semibold border border-indigo-500 shadow-sm transition cursor-pointer'
+          : 'res-tier-btn py-1.5 px-2 rounded-lg bg-surface-900 hover:bg-zinc-800 text-zinc-300 font-mono text-xs font-semibold border border-zinc-700/80 transition cursor-pointer';
+      });
+    }
+
+    function applyResolutionPreset() {
+      const dims = RESOLUTION_MAP[state.aspectRatio]?.[state.resolutionTier] || [480, 864];
+      updateResolutionUI();
+      setResolution(dims[0], dims[1]);
+      updateFrameCalculation();
+    }
+
+    function setAspectRatio(ratio) {
+      state.aspectRatio = ratio;
+      applyResolutionPreset();
+    }
+
+    function setResolutionTier(tier) {
+      state.resolutionTier = tier;
+      applyResolutionPreset();
+    }
+
+    function resetPipelineChips() {
+      document.querySelectorAll('.node-chip').forEach(chip => {
+        chip.className = 'node-chip px-2.5 py-1 rounded-lg bg-surface-800 text-zinc-400 border border-zinc-800 transition';
+      });
+    }
+
+    function highlightNodeChip(nodeId, status = 'active') {
+      const chip = document.querySelector(`.node-chip[data-node="${nodeId}"]`);
+      if (!chip) return;
+      if (status === 'active') {
+        chip.className = 'node-chip px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition';
+      } else if (status === 'done') {
+        chip.className = 'node-chip px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 transition';
+      }
+    }
+
+    function setGeneratingState(active) {
+      state.isGenerating = active;
+      els.generateBtn.disabled = active;
+      els.interruptBtn.disabled = !active;
+      if (active) {
+        els.generateBtnText.textContent = 'Sedang Memproses...';
+        els.generateBtn.classList.add('opacity-70', 'cursor-not-allowed');
+        els.execPulse.className = 'w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping';
+      } else {
+        els.generateBtnText.textContent = 'Generate Video & Audio';
+        els.generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        els.execPulse.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+      }
+    }
+
+    // =========================================================================
+    // 4. WEBSOCKET CONNECTION & REALTIME TELEMETRY
+    // =========================================================================
+    async function fetchSystemStats() {
+      try {
+        const { httpBase } = getProtocolConfig();
+        const res = await fetch(`${httpBase}/system_stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.devices && data.devices.length > 0) {
+          const gpu = data.devices[0];
+          const vramFreeGB = (gpu.vram_free / (1024 ** 3)).toFixed(1);
+          const vramTotalGB = (gpu.vram_total / (1024 ** 3)).toFixed(1);
+          const shortName = gpu.name.replace(/NVIDIA GeForce |NVIDIA /gi, '');
+          els.gpuInfoText.textContent = `${shortName} (${vramFreeGB}/${vramTotalGB} GB)`;
+          els.gpuBadge.classList.remove('hidden');
+        }
+      } catch (err) {
+        // Abaikan jika endpoint system_stats dibatasi
+      }
+    }
+
+    function connectWebSocket() {
+      if (state.reconnectTimer) {
+        clearTimeout(state.reconnectTimer);
+        state.reconnectTimer = null;
+      }
+
+      if (state.ws) {
+        state.manualDisconnect = true;
+        try { state.ws.close(); } catch (e) {}
+      }
+
+      state.manualDisconnect = false;
+      const { wsUrl, host } = getProtocolConfig();
+      if (!host) {
+        showToast('Masukkan alamat host ComfyUI terlebih dahulu.', 'warning');
+        return;
+      }
+
+      localStorage.setItem('comfy_ref2va_host', els.serverHost.value.trim());
+      setConnectionStatus('connecting');
+      appendLog(`Menghubungkan ke ${wsUrl}...`, 'ws');
+
+      try {
+        const ws = new WebSocket(wsUrl);
+        state.ws = ws;
+
+        ws.onopen = () => {
+          setConnectionStatus('connected');
+          appendLog('WebSocket terhubung ke ComfyUI!', 'success');
+          showToast('Berhasil terhubung ke ComfyUI WebSocket', 'success');
+          fetchSystemStats();
+        };
+
+        ws.onmessage = (event) => {
+          if (typeof event.data !== 'string') return;
+          try {
+            const msg = JSON.parse(event.data);
+            handleComfyMessage(msg);
+          } catch (e) {
+            // Abaikan frame biner
+          }
+        };
+
+        ws.onerror = () => {
+          appendLog('Terjadi kesalahan koneksi WebSocket. Pastikan ComfyUI berjalan & CORS aktif.', 'error');
+        };
+
+        ws.onclose = () => {
+          setConnectionStatus('disconnected');
+          if (!state.manualDisconnect && state.autoConnect) {
+            appendLog('Koneksi terputus. Auto-connect mencoba menyambung ulang dalam 3 detik...', 'info');
+            state.reconnectTimer = setTimeout(() => {
+              connectWebSocket();
+            }, 3000);
+          } else if (state.manualDisconnect) {
+            appendLog('Koneksi WebSocket diputus secara manual.', 'info');
+          } else {
+            appendLog('Koneksi terputus (Auto-connect nonaktif).', 'info');
+          }
+        };
+      } catch (err) {
+        setConnectionStatus('disconnected');
+        appendLog(`Gagal membuat WebSocket: ${err.message}`, 'error');
+      }
+    }
+
+    function handleComfyMessage(msg) {
+      const { type, data } = msg;
+
+      if (type === 'status') {
+        const remaining = data?.status?.exec_info?.queue_remaining ?? 0;
+        els.queueBadge.textContent = `Queue: ${remaining}`;
+      } else if (type === 'execution_start') {
+        if (data.prompt_id === state.currentPromptId) {
+          resetPipelineChips();
+          els.currentNodeLabel.textContent = 'Memulai eksekusi workflow...';
+          appendLog(`Eksekusi dimulai (Prompt ID: ${data.prompt_id.slice(0, 8)})`, 'ws');
+        }
+      } else if (type === 'executing') {
+        if (data.prompt_id === state.currentPromptId) {
+          if (data.node === null) {
+            // Eksekusi selesai sepenuhnya
+            els.currentNodeLabel.textContent = 'Selesai 100%';
+            els.progressBar.style.width = '100%';
+            els.progressPercentText.textContent = '100%';
+            setGeneratingState(false);
+            appendLog('Seluruh node selesai dieksekusi!', 'success');
+            showToast('Video & Audio selesai dibuat!', 'success');
+            fetchOutputHistory(data.prompt_id);
+          } else {
+            const nodeTitle = BASE_WORKFLOW[data.node]?._meta?.title || `Node ${data.node}`;
+            els.currentNodeLabel.textContent = `Menjalankan [${data.node}] ${nodeTitle}`;
+            highlightNodeChip(data.node, 'active');
+          }
+        }
+      } else if (type === 'progress') {
+        if (data.prompt_id === state.currentPromptId) {
+          const pct = Math.round((data.value / data.max) * 100);
+          els.progressBar.style.width = `${pct}%`;
+          els.progressStepText.textContent = `Step: ${data.value} / ${data.max}`;
+          els.progressPercentText.textContent = `${pct}%`;
+        }
+      } else if (type === 'executed') {
+        if (data.prompt_id === state.currentPromptId) {
+          highlightNodeChip(data.node, 'done');
+          if (data.output) {
+            processNodeOutput(data.node, data.output);
+          }
+        }
+      } else if (type === 'execution_error') {
+        if (data.prompt_id === state.currentPromptId) {
+          setGeneratingState(false);
+          els.currentNodeLabel.textContent = `Error pada Node ${data.node_id}`;
+          appendLog(`Execution Error [${data.node_type}]: ${data.exception_message}`, 'error');
+          showToast(`Error ComfyUI: ${data.exception_message}`, 'error');
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. IMAGE UPLOAD, WORKFLOW BUILDER & PROMPT SUBMISSION
+    // =========================================================================
+    function renderRefSlots() {
+      if (!els.refSlotsGrid) return;
+      els.refSlotsGrid.innerHTML = '';
+
+      let activeCount = 0;
+
+      state.refSlots.forEach((slot, idx) => {
+        const isPrimary = idx === 0;
+        const hasImage = Boolean(slot.previewUrl || slot.file || (isPrimary && slot.uploadedFilename));
+        if (hasImage) activeCount++;
+
+        const card = document.createElement('div');
+        card.className = isPrimary
+          ? 'col-span-2 sm:col-span-4 relative group border-2 border-dashed border-zinc-700/80 hover:border-indigo-500/70 rounded-xl p-3 transition bg-surface-800/50 cursor-pointer flex flex-col items-center justify-center min-h-[155px] overflow-hidden'
+          : 'col-span-1 relative group border-2 border-dashed border-zinc-700/70 hover:border-indigo-500/70 rounded-xl p-2 transition bg-surface-800/40 cursor-pointer flex flex-col items-center justify-center min-h-[108px] overflow-hidden';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.className = 'hidden';
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleSelectedFile(idx, e.target.files[0]);
+          }
+        });
+
+        // Header badge (Picture N)
+        const badge = document.createElement('span');
+        badge.className = 'absolute top-2 left-2 z-10 text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-surface-950/85 text-indigo-300 border border-indigo-500/30 pointer-events-none';
+        badge.textContent = `Pic ${idx + 1}`;
+        card.appendChild(badge);
+
+        // Remove button for slots with preview or optional slots
+        if (slot.previewUrl || (!isPrimary && slot.uploadedFilename)) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.title = `Hapus ${slot.label}`;
+          removeBtn.className = 'absolute top-2 right-2 z-20 w-5 h-5 rounded-md bg-rose-600/85 hover:bg-rose-500 text-white text-xs flex items-center justify-center shadow transition cursor-pointer';
+          removeBtn.textContent = '×';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearRefSlot(idx);
+          });
+          card.appendChild(removeBtn);
+        }
+
+        if (slot.previewUrl) {
+          const img = document.createElement('img');
+          img.src = slot.previewUrl;
+          img.alt = slot.label;
+          img.className = isPrimary
+            ? 'max-h-40 w-auto rounded-lg object-contain shadow border border-zinc-700/60'
+            : 'h-16 w-full rounded-lg object-cover border border-zinc-700/60';
+          card.appendChild(img);
+
+          const meta = document.createElement('div');
+          meta.className = 'mt-1.5 w-full text-center truncate text-[10px] font-mono text-zinc-400 px-1';
+          meta.textContent = slot.file?.name || slot.uploadedFilename || slot.dimensions;
+          card.appendChild(meta);
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'text-center pointer-events-none px-1';
+          placeholder.innerHTML = isPrimary
+            ? `
+              <div class="w-9 h-9 rounded-full bg-zinc-800 mx-auto mb-1.5 flex items-center justify-center text-zinc-400 group-hover:text-indigo-400 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p class="text-xs font-medium text-zinc-200">Klik / seret Gambar Utama (Picture 1)</p>
+              <p class="text-[10px] font-mono text-zinc-500 mt-0.5">Default server: ${slot.uploadedFilename}</p>
+            `
+            : `
+              <div class="w-7 h-7 rounded-full bg-zinc-800/90 mx-auto mb-1 flex items-center justify-center text-zinc-500 group-hover:text-indigo-400 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <p class="text-[10px] text-zinc-400 font-medium">Opsional</p>
+            `;
+          card.appendChild(placeholder);
+        }
+
+        card.appendChild(fileInput);
+
+        card.addEventListener('click', () => fileInput.click());
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          card.classList.add('border-indigo-500', 'bg-indigo-500/10');
+        });
+        card.addEventListener('dragleave', () => {
+          card.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+        });
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          card.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleSelectedFile(idx, e.dataTransfer.files[0]);
+          }
+        });
+
+        els.refSlotsGrid.appendChild(card);
+      });
+
+      if (els.activeRefCountBadge) {
+        els.activeRefCountBadge.textContent = `${activeCount} / 5 Aktif`;
+      }
+    }
+
+    function handleSelectedFile(slotIndex, file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showToast('Pilih file gambar yang valid (PNG/JPG/WEBP).', 'warning');
+        return;
+      }
+
+      const slot = state.refSlots[slotIndex];
+      slot.file = file;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        slot.previewUrl = e.target.result;
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          slot.dimensions = `${tempImg.width}×${tempImg.height}px`;
+          renderRefSlots();
+        };
+        tempImg.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearRefSlot(slotIndex) {
+      const slot = state.refSlots[slotIndex];
+      slot.file = null;
+      slot.previewUrl = null;
+      slot.dimensions = '';
+      slot.uploadedFilename = slotIndex === 0 ? 'ref1.jpeg' : null;
+      renderRefSlots();
+    }
+
+    async function uploadReferenceImage(file, slotIndex) {
+      const { httpBase } = getProtocolConfig();
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('overwrite', 'true');
+
+      appendLog(`Mengunggah Picture ${slotIndex + 1} (${file.name}) ke ComfyUI...`, 'info');
+      const res = await fetch(`${httpBase}/upload/image`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload Picture ${slotIndex + 1} gagal (${res.status} ${res.statusText})`);
+      }
+
+      const result = await res.json();
+      state.refSlots[slotIndex].uploadedFilename = result.name;
+      appendLog(`Picture ${slotIndex + 1} berhasil diunggah sebagai: ${result.name}`, 'success');
+      return result.name;
+    }
+
+    function buildWorkflowPayload() {
+      const wf = JSON.parse(JSON.stringify(BASE_WORKFLOW));
+      const maxRefSize = parseInt(els.refMaxSizeInput.value, 10) || 512;
+
+      // Bersihkan input ref_images lama pada Node 106 lalu pasang hingga 5 referensi aktif
+      Object.keys(wf["106"].inputs).forEach((key) => {
+        if (key.startsWith("ref_images.ref_image_")) {
+          delete wf["106"].inputs[key];
+        }
+      });
+
+      let refOutputIndex = 0;
+      state.refSlots.forEach((slot, idx) => {
+        const filename = slot.uploadedFilename || (slot.file ? slot.file.name : null);
+        if (idx === 0) {
+          wf["102"].inputs.image = filename || "ref1.jpeg";
+          wf["105"].inputs.largest_size = maxRefSize;
+          wf["106"].inputs[`ref_images.ref_image_${refOutputIndex}`] = ["105", 0];
+          refOutputIndex++;
+        } else if (filename) {
+          wf[slot.loadNodeId] = {
+            inputs: { image: filename },
+            class_type: "LoadImage",
+            _meta: { title: `Load Image (${slot.label})`, cnr_id: "comfy-core", ver: "0.33.0" }
+          };
+          wf[slot.scaleNodeId] = {
+            inputs: {
+              upscale_method: "area",
+              largest_size: maxRefSize,
+              image: [slot.loadNodeId, 0]
+            },
+            class_type: "ImageScaleToMaxDimension",
+            _meta: { title: `Scale Image (${slot.label})`, cnr_id: "comfy-core", ver: "0.34.0" }
+          };
+          wf["106"].inputs[`ref_images.ref_image_${refOutputIndex}`] = [slot.scaleNodeId, 0];
+          refOutputIndex++;
+        }
+      });
+
+      // Node 106: MiniMaxH3ReferenceToVideo
+      wf["106"].inputs.prompt = els.promptInput.value;
+      wf["106"].inputs.width = parseInt(els.widthInput.value, 10) || 480;
+      wf["106"].inputs.height = parseInt(els.heightInput.value, 10) || 864;
+
+      // Node 27: Duration
+      wf["27"].inputs.value = parseFloat(els.durationInput.value) || 15;
+
+      // Node 86: Steps
+      wf["86"].inputs.value = parseInt(els.stepsInput.value, 10) || 8;
+
+      // Node 6: RandomNoise Seed
+      let seedVal = parseInt(els.seedInput.value, 10) || 0;
+      if (els.autoRandomSeed.checked) {
+        seedVal = Math.floor(Math.random() * 999999999999);
+        els.seedInput.value = seedVal;
+      }
+      wf["6"].inputs.noise_seed = seedVal;
+
+      // Node 9, 1, 2, 3, 4: Sampler, UNET, CLIP, VAEs
+      wf["9"].inputs.sampler_name = els.samplerInput.value.trim();
+      wf["1"].inputs.unet_name = els.unetInput.value.trim();
+      wf["2"].inputs.clip_name = els.clipInput.value.trim();
+      wf["3"].inputs.vae_name = els.videoVaeInput.value.trim();
+      wf["4"].inputs.vae_name = els.audioVaeInput.value.trim();
+
+      // Node 93 & 51: LoRAs
+      wf["93"].inputs.lora_name = els.lora1NameInput.value.trim();
+      wf["93"].inputs.strength_model = parseFloat(els.lora1StrengthInput.value);
+      wf["51"].inputs.lora_name = els.lora2NameInput.value.trim();
+      wf["51"].inputs.strength_model = parseFloat(els.lora2StrengthInput.value);
+
+      // Node 83: Output Prefix
+      wf["83"].inputs.filename_prefix = els.prefixMainInput.value.trim();
+
+      return wf;
+    }
+
+    async function queueWorkflow() {
+      const durationSeconds = Math.max(1, Math.round(parseFloat(els.durationInput.value) || 1));
+
+      if (!state.isConnected) {
+        showToast('Belum terhubung ke ComfyUI WebSocket!', 'warning');
+        return;
+      }
+
+      setGeneratingState(true);
+      els.progressBar.style.width = '2%';
+      els.progressStepText.textContent = 'Menyiapkan...';
+      els.progressPercentText.textContent = '0%';
+
+      try {
+        // 1. Upload semua gambar referensi baru yang dipilih pengguna (maksimal 5 gambar)
+        for (const slot of state.refSlots) {
+          if (slot.file) {
+            await uploadReferenceImage(slot.file, slot.index);
+            slot.file = null;
+          }
+        }
+        renderRefSlots();
+
+        // 2. Susun JSON API Workflow
+        const workflowPayload = buildWorkflowPayload();
+        const { httpBase } = getProtocolConfig();
+
+        appendLog(`Mengirim workflow REF2VA (${durationSeconds}s • ${state.resolutionTier}p) ke antrean (/prompt)...`, 'ws');
+        const res = await fetch(`${httpBase}/prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: workflowPayload,
+            client_id: state.clientId
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error?.message || `HTTP ${res.status}`);
+        }
+
+        state.currentPromptId = data.prompt_id;
+        appendLog(`Antrean diterima! Prompt ID: ${data.prompt_id}`, 'success');
+      } catch (err) {
+        setGeneratingState(false);
+        appendLog(`Gagal memulai generate: ${err.message}`, 'error');
+        showToast(`Gagal: ${err.message}`, 'error');
+      }
+    }
+
+    async function interruptExecution() {
+      try {
+        const { httpBase } = getProtocolConfig();
+        await fetch(`${httpBase}/interrupt`, { method: 'POST' });
+        appendLog('Permintaan penghentian eksekusi dikirim (/interrupt).', 'info');
+        showToast('Menghentikan proses render...', 'warning');
+        setGeneratingState(false);
+      } catch (err) {
+        appendLog(`Gagal menghentikan: ${err.message}`, 'error');
+      }
+    }
+
+    async function clearGpuVram() {
+      if (!state.isConnected) {
+        showToast('Belum terhubung ke ComfyUI WebSocket!', 'warning');
+        return;
+      }
+
+      const originalLabel = els.clearVramText.textContent;
+      els.clearVramBtn.disabled = true;
+      els.clearVramText.textContent = 'Membersihkan...';
+
+      try {
+        const { httpBase } = getProtocolConfig();
+        appendLog('Mengirim perintah unload model & pembersihan cache VRAM (/free)...', 'ws');
+
+        const res = await fetch(`${httpBase}/free`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            unload_models: true,
+            free_memory: true
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
+
+        appendLog('VRAM GPU berhasil dibersihkan dan model telah di-unload.', 'success');
+        showToast('VRAM GPU berhasil dibersihkan!', 'success');
+
+        // Segarkan statistik VRAM setelah jeda singkat
+        setTimeout(() => fetchSystemStats(), 700);
+      } catch (err) {
+        appendLog(`Gagal membersihkan VRAM: ${err.message}`, 'error');
+        showToast(`Gagal membersihkan VRAM: ${err.message}`, 'error');
+      } finally {
+        els.clearVramBtn.disabled = false;
+        els.clearVramText.textContent = originalLabel;
+      }
+    }
+
+    // =========================================================================
+    // 6. OUTPUT VIDEO PARSER & HISTORY VIEWER
+    // =========================================================================
+    function buildViewUrl(fileObj) {
+      const { httpBase } = getProtocolConfig();
+      const params = new URLSearchParams({
+        filename: fileObj.filename,
+        subfolder: fileObj.subfolder || '',
+        type: fileObj.type || 'output'
+      });
+      return `${httpBase}/view?${params.toString()}`;
+    }
+
+    function processNodeOutput(nodeId, outputObj) {
+      const items = outputObj.videos || outputObj.gifs || outputObj.images || [];
+      if (!items.length) return;
+
+      const fileObj = items[0];
+      const videoUrl = buildViewUrl(fileObj);
+
+      if (String(nodeId) === '83') {
+        els.emptyVideoState.classList.add('hidden');
+        els.videoOutputContainer.classList.remove('hidden');
+
+        els.mainVideoPlayer.src = videoUrl;
+        els.mainVideoPlayer.play().catch(() => {});
+        els.downloadMainBtn.href = videoUrl;
+        els.downloadMainBtn.download = fileObj.filename;
+        els.mainVideoMeta.textContent = `${fileObj.subfolder ? fileObj.subfolder + '/' : ''}${fileObj.filename}`;
+
+        state.currentOutput = { url: videoUrl, filename: fileObj.filename, timestamp: new Date().toLocaleTimeString('id-ID') };
+        addToSessionHistory(state.currentOutput);
+        saveJobToServer({
+          promptId: state.currentPromptId,
+          filename: fileObj.filename,
+          subfolder: fileObj.subfolder || '',
+          type: fileObj.type || 'output',
+          resolution: `${els.widthInput.value}x${els.heightInput.value}`,
+          duration: parseFloat(els.durationInput.value) || 15,
+          seed: parseInt(els.seedInput.value, 10) || 0,
+          prompt: els.promptInput.value.slice(0, 300)
+        });
+      }
+    }
+
+    // =========================================================================
+    // 6B. FULLSTACK BACKEND DETECTION, SERVER JOBS & HOSTING KIT
+    // =========================================================================
+    function updateModeBadge() {
+      if (!els.modeBadge || !els.modeText || !els.modeDot) return;
+      if (state.mode === 'proxy') {
+        els.modeDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]';
+        els.modeText.textContent = 'Fullstack Proxy';
+        els.modeBadge.className = 'hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 text-[11px] font-mono text-emerald-300';
+      } else {
+        els.modeDot.className = 'w-2 h-2 rounded-full bg-indigo-400';
+        els.modeText.textContent = 'Direct WS';
+        els.modeBadge.className = 'hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-800 border border-zinc-700/80 text-[11px] font-mono text-zinc-300';
+      }
+    }
+
+    async function detectFullstackBackend() {
+      if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') {
+        state.mode = 'direct';
+        updateModeBadge();
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 1800);
+        const res = await fetch(`${window.location.origin}/api/health`, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.fullstack === true) {
+            state.mode = 'proxy';
+            updateModeBadge();
+            appendLog(`Backend Fullstack terdeteksi (${data.service || 'REF2VA Server'}). Menggunakan Same-Origin Proxy.`, 'success');
+            await fetchServerJobs();
+            return;
+          }
+        }
+      } catch (e) {
+        // Tidak ada backend di origin ini, fallback ke Direct Mode
+      }
+      state.mode = 'direct';
+      updateModeBadge();
+    }
+
+    async function fetchServerJobs() {
+      if (state.mode !== 'proxy') return;
+      try {
+        const res = await fetch(`${window.location.origin}/api/jobs`);
+        if (!res.ok) return;
+        const jobs = await res.json();
+        if (Array.isArray(jobs) && jobs.length > 0) {
+          state.sessionHistory = jobs.map(j => ({
+            url: buildViewUrl({ filename: j.filename, subfolder: j.subfolder || '', type: j.type || 'output' }),
+            filename: j.filename,
+            timestamp: j.createdAt ? new Date(j.createdAt).toLocaleString('id-ID') : ''
+          }));
+          els.historySection.classList.remove('hidden');
+          renderHistoryStrip();
+        }
+      } catch (e) {
+        // Abaikan jika gagal memuat riwayat server
+      }
+    }
+
+    async function saveJobToServer(jobPayload) {
+      if (state.mode !== 'proxy') return;
+      try {
+        await fetch(`${window.location.origin}/api/jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jobPayload)
+        });
+      } catch (e) {
+        // Abaikan jika gagal menyimpan ke backend
+      }
+    }
+
+    const HOSTING_FILES = {
+      'server.js': `/**
+ * MiniMax H3 REF2VA Studio — Fullstack Production Server
+ * Menjalankan frontend static (public/index.html), Reverse Proxy REST + WebSocket
+ * ke ComfyUI, serta penyimpanan riwayat hasil video (data/jobs.json).
+ */
+require('dotenv').config();
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const cors = require('cors');
+const { WebSocketServer, WebSocket } = require('ws');
+
+const PORT = Number(process.env.PORT || 3000);
+const COMFYUI_URL = (process.env.COMFYUI_URL || 'https://wolfgg.online').replace(/\\/+$/, '');
+const COMFYUI_WS_URL = COMFYUI_URL.replace(/^http/i, 'ws');
+const DATA_DIR = path.join(__dirname, 'data');
+const JOBS_FILE = path.join(DATA_DIR, 'jobs.json');
+
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(JOBS_FILE)) fs.writeFileSync(JOBS_FILE, '[]', 'utf8');
+
+const app = express();
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Helper baca/tulis riwayat video server
+function readJobs() {
+  try {
+    return JSON.parse(fs.readFileSync(JOBS_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function writeJobs(jobs) {
+  fs.writeFileSync(JOBS_FILE, JSON.stringify(jobs.slice(0, 100), null, 2), 'utf8');
+}
+
+// 1. Healthcheck (dideteksi otomatis oleh frontend untuk mengaktifkan Fullstack Proxy)
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    fullstack: true,
+    service: 'MiniMax H3 REF2VA Fullstack',
+    upstream: COMFYUI_URL,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 2. Persistent Video Jobs History API
+app.get('/api/jobs', (req, res) => {
+  res.json(readJobs());
+});
+
+app.post('/api/jobs', express.json({ limit: '2mb' }), (req, res) => {
+  const job = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    ...req.body,
+    createdAt: new Date().toISOString()
+  };
+  const jobs = readJobs();
+  jobs.unshift(job);
+  writeJobs(jobs);
+  res.status(201).json(job);
+});
+
+app.delete('/api/jobs', (req, res) => {
+  writeJobs([]);
+  res.json({ cleared: true });
+});
+
+// 3. Universal ComfyUI REST Proxy (/api/comfy/* -> COMFYUI_URL/*)
+// Mendukung JSON, multipart upload (/upload/image), dan streaming video (/view)
+app.all('/api/comfy/*', async (req, res) => {
+  try {
+    const targetPath = req.originalUrl.replace(/^\\/api\\/comfy/, '');
+    const targetUrl = \`\${COMFYUI_URL}\${targetPath}\`;
+
+    const headers = {};
+    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
+    if (req.headers['accept']) headers['accept'] = req.headers['accept'];
+    if (req.headers['range']) headers['range'] = req.headers['range'];
+
+    let body = undefined;
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = Buffer.concat(chunks);
+    }
+
+    const upstreamRes = await fetch(targetUrl, {
+      method: req.method,
+      headers,
+      body
+    });
+
+    res.status(upstreamRes.status);
+    upstreamRes.headers.forEach((value, key) => {
+      if (!['transfer-encoding', 'content-encoding', 'connection'].includes(key.toLowerCase())) {
+        res.setHeader(key, value);
+      }
+    });
+
+    if (upstreamRes.body) {
+      const reader = upstreamRes.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+    }
+    res.end();
+  } catch (err) {
+    console.error('[Proxy Error]', err.message);
+    res.status(502).json({ error: { message: \`Upstream ComfyUI tidak dapat dijangkau: \${err.message}\` } });
+  }
+});
+
+// Fallback SPA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 4. WebSocket Bridge (/ws/comfy -> COMFYUI_WS_URL/ws)
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (request, socket, head) => {
+  const urlObj = new URL(request.url, \`http://\${request.headers.host}\`);
+  if (urlObj.pathname === '/ws/comfy') {
+    wss.handleUpgrade(request, socket, head, (clientWs) => {
+      const clientId = urlObj.searchParams.get('clientId') || '';
+      const upstreamWsUrl = \`\${COMFYUI_WS_URL}/ws\${clientId ? '?clientId=' + encodeURIComponent(clientId) : ''}\`;
+      const upstreamWs = new WebSocket(upstreamWsUrl);
+
+      upstreamWs.on('message', (data, isBinary) => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(data, { binary: isBinary });
+        }
+      });
+
+      clientWs.on('message', (data, isBinary) => {
+        if (upstreamWs.readyState === WebSocket.OPEN) {
+          upstreamWs.send(data, { binary: isBinary });
+        }
+      });
+
+      const closeBoth = () => {
+        try { clientWs.close(); } catch {}
+        try { upstreamWs.close(); } catch {}
+      };
+
+      upstreamWs.on('close', closeBoth);
+      upstreamWs.on('error', closeBoth);
+      clientWs.on('close', closeBoth);
+      clientWs.on('error', closeBoth);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(\`[REF2VA Fullstack] Berjalan di http://0.0.0.0:\${PORT}\`);
+  console.log(\`[REF2VA Fullstack] Upstream ComfyUI: \${COMFYUI_URL}\`);
+});
+`,
+      'package.json': `{
+  "name": "minimax-h3-ref2va-fullstack",
+  "version": "1.0.0",
+  "description": "Fullstack Web Studio & WebSocket Reverse Proxy untuk ComfyUI MiniMax H3 REF2VA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
+}
+`,
+      '.env.example': `# Port server web fullstack
+PORT=3000
+
+# Alamat ComfyUI lokal atau tunnel publik (tanpa garis miring di akhir)
+COMFYUI_URL=https://wolfgg.online
+`,
+      'Dockerfile': `FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --omit=dev
+
+COPY server.js ./
+COPY public ./public
+
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["npm", "start"]
+`
+    };
+
+    let activeDeployTab = 'guide';
+
+    function switchDeployTab(fileKey) {
+      activeDeployTab = fileKey;
+      document.querySelectorAll('.deploy-tab').forEach(btn => {
+        const isActive = btn.dataset.file === fileKey;
+        btn.className = isActive
+          ? 'deploy-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white transition cursor-pointer'
+          : 'deploy-tab px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-800 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer';
+      });
+
+      if (fileKey === 'guide') {
+        els.deployGuideView.classList.remove('hidden');
+        els.deployCodeView.classList.add('hidden');
+        els.copyDeployFileBtn.classList.add('hidden');
+        els.downloadDeployFileBtn.classList.add('hidden');
+      } else {
+        els.deployGuideView.classList.add('hidden');
+        els.deployCodeView.classList.remove('hidden');
+        els.deployCodeView.textContent = HOSTING_FILES[fileKey] || '';
+        els.copyDeployFileBtn.classList.remove('hidden');
+        els.downloadDeployFileBtn.classList.remove('hidden');
+      }
+    }
+
+    function downloadTextFile(filename, content) {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function copyTextFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(`Kode ${activeDeployTab} berhasil disalin!`, 'success');
+      } catch (e) {
+        showToast('Gagal menyalin kode ke clipboard.', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    // =========================================================================
+    // 7. EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+    // Connection & Auto-Connect Toggles
+    els.autoConnectToggle.addEventListener('change', (e) => {
+      state.autoConnect = e.target.checked;
+      localStorage.setItem('comfy_ref2va_autoconnect', state.autoConnect ? '1' : '0');
+      if (state.autoConnect) {
+        appendLog('Fitur Auto-Connect diaktifkan.', 'info');
+        if (!state.isConnected) connectWebSocket();
+      } else {
+        if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+        appendLog('Fitur Auto-Connect dinonaktifkan.', 'info');
+      }
+    });
+
+    els.connectBtn.addEventListener('click', () => {
+      if (state.isConnected && state.ws) {
+        state.manualDisconnect = true;
+        if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+        state.ws.close();
+      } else {
+        connectWebSocket();
+      }
+    });
+
+    els.serverHost.addEventListener('input', () => {
+      getProtocolConfig();
+      if (!state.autoConnect) return;
+      clearTimeout(state.hostDebounceTimer);
+      state.hostDebounceTimer = setTimeout(() => {
+        appendLog('Alamat host berubah, menyambungkan ulang otomatis...', 'ws');
+        connectWebSocket();
+      }, 900);
+    });
+
+    els.serverHost.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(state.hostDebounceTimer);
+        connectWebSocket();
+      }
+    });
+
+    // Reconnect otomatis saat internet kembali online atau tab aktif kembali
+    window.addEventListener('online', () => {
+      if (state.autoConnect && !state.isConnected && !state.manualDisconnect) {
+        appendLog('Jaringan kembali online, menghubungkan otomatis...', 'ws');
+        connectWebSocket();
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.autoConnect && !state.isConnected && !state.manualDisconnect) {
+        connectWebSocket();
+      }
+    });
+
+    // Prompt Controls
+    els.promptInput.addEventListener('input', () => {
+      els.charCount.textContent = `${els.promptInput.value.length} karakter`;
+    });
+
+    els.clearPromptBtn.addEventListener('click', () => {
+      els.promptInput.value = '';
+      els.promptInput.dispatchEvent(new Event('input'));
+      showToast('Prompt berhasil dibersihkan.', 'info');
+    });
+
+    // Duration & Seed
+    els.durationInput.addEventListener('input', updateFrameCalculation);
+    els.widthInput.addEventListener('input', () => {
+      const badge = document.getElementById('activeResBadge');
+      if (badge) badge.textContent = `Custom (${els.widthInput.value} × ${els.heightInput.value})`;
+    });
+    els.heightInput.addEventListener('input', () => {
+      const badge = document.getElementById('activeResBadge');
+      if (badge) badge.textContent = `Custom (${els.widthInput.value} × ${els.heightInput.value})`;
+    });
+    els.randomSeedBtn.addEventListener('click', () => {
+      els.seedInput.value = Math.floor(Math.random() * 999999999999);
+    });
+
+    // Main Generate, Interrupt & Export JSON
+    els.generateBtn.addEventListener('click', queueWorkflow);
+    els.interruptBtn.addEventListener('click', interruptExecution);
+    els.clearVramBtn.addEventListener('click', clearGpuVram);
+
+    els.exportJsonBtn.addEventListener('click', () => {
+      const payload = buildWorkflowPayload();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'REF2VA-API-Workflow.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('File JSON API workflow berhasil diunduh.', 'success');
+    });
+
+    els.clearLogBtn.addEventListener('click', () => {
+      els.logConsole.innerHTML = '';
+    });
+
+    els.clearHistoryBtn.addEventListener('click', () => {
+      state.sessionHistory = [];
+      els.historyList.innerHTML = '';
+      els.historySection.classList.add('hidden');
+      if (state.mode === 'proxy') {
+        fetch(`${window.location.origin}/api/jobs`, { method: 'DELETE' }).catch(() => {});
+      }
+    });
+
+    // Fullstack Deploy Modal Listeners
+    els.openDeployModalBtn.addEventListener('click', () => {
+      els.deployModal.classList.remove('hidden');
+      switchDeployTab('guide');
+    });
+
+    els.closeDeployModalBtn.addEventListener('click', () => {
+      els.deployModal.classList.add('hidden');
+    });
+
+    els.deployModal.addEventListener('click', (e) => {
+      if (e.target === els.deployModal) els.deployModal.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.deploy-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchDeployTab(btn.dataset.file));
+    });
+
+    els.copyDeployFileBtn.addEventListener('click', () => {
+      if (HOSTING_FILES[activeDeployTab]) {
+        copyTextFallback(HOSTING_FILES[activeDeployTab]);
+      }
+    });
+
+    els.downloadDeployFileBtn.addEventListener('click', () => {
+      if (HOSTING_FILES[activeDeployTab]) {
+        downloadTextFile(activeDeployTab, HOSTING_FILES[activeDeployTab]);
+        showToast(`Mengunduh ${activeDeployTab}...`, 'success');
+      }
+    });
+
+    els.downloadAllBackendBtn.addEventListener('click', () => {
+      Object.entries(HOSTING_FILES).forEach(([filename, content], idx) => {
+        setTimeout(() => downloadTextFile(filename, content), idx * 250);
+      });
+      showToast('Mengunduh 4 file backend (server.js, package.json, .env.example, Dockerfile)...', 'success');
+    });
+
+    // Initial Boot
+    window.addEventListener('DOMContentLoaded', async () => {
+      els.clientIdDisplay.textContent = state.clientId.slice(0, 8);
+      const savedHost = localStorage.getItem('comfy_ref2va_host');
+      if (savedHost) {
+        els.serverHost.value = savedHost;
+      } else {
+        els.serverHost.value = 'https://wolfgg.online';
+      }
+
+      const savedAuto = localStorage.getItem('comfy_ref2va_autoconnect');
+      state.autoConnect = savedAuto === null ? true : savedAuto === '1';
+      els.autoConnectToggle.checked = state.autoConnect;
+
+      // Mulai dengan kolom prompt kosong
+      els.promptInput.value = '';
+      els.promptInput.dispatchEvent(new Event('input'));
+      renderRefSlots();
+      updateFrameCalculation();
+
+      // Deteksi otomatis apakah berjalan di belakang server Fullstack Proxy
+      await detectFullstackBackend();
+      getProtocolConfig();
+
+      // Langsung terhubung otomatis ke WebSocket saat halaman dimuat jika Auto-Connect aktif
+      if (state.autoConnect) {
+        connectWebSocket();
+      } else {
+        setConnectionStatus('disconnected');
+      }
+    });
+  </script>
+</body>
+</html>
